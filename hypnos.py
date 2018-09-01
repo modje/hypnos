@@ -1,7 +1,11 @@
 import sys, os
+import warnings
 import argparse
+import time
 from selenium import webdriver
 from tinydb import TinyDB, Query
+# TODO : remove this, fix warnings about PhantomJS being deprecated instead
+warnings.filterwarnings("ignore")
 
 # Arguments parser
 parser = argparse.ArgumentParser()
@@ -15,6 +19,26 @@ if args.command not in ['list','update'] and not args.chan:
 dbFile = os.path.join(os.path.dirname(sys.argv[0]), "db.json")
 db = TinyDB(dbFile)
 
+# Parse channel content and update database
+def updateChannel(channel):
+	# Get page content
+	driver.get('https://www.youtube.com/user/%s/videos' % channel)
+	# Get videos links and titles
+	links = driver.find_elements_by_xpath('//body//h3[contains(@class,"yt-lockup-title")]/a')
+	mostRecent=None
+	for link in links:
+		vtitle = link.get_attribute("title")
+		vhref = link.get_attribute("href")
+		vhrefid = vhref.split('=')[1]
+		print("[%s] Video found : %s" % (channel,vtitle))
+		print("[%s] [%s] Video unknown" % (channel,vhrefid))
+		# Keep the first video as the most recent one
+		if not mostRecent:
+			mostRecent=vhrefid
+	# Update the lastvid and scants in db
+	chan = Query()
+	db.update({'lastvid': mostRecent, 'scants': int(time.time())}, (chan.type == 'channel') & (chan.id == channel))
+
 # Output the channel list
 if args.command=="list":
 	chans = Query()
@@ -22,62 +46,54 @@ if args.command=="list":
 		scandate = "never"
 		if chan['scants']:
 			scandate = chan['scants']
-			# TODO : get a pretty date string (like "4d ago")
+			scandate = int(time.time()) - int(scandate)
+			if scandate < 60:
+				scandate = "just now"
+			elif scandate < 3600:
+				scandate = "%sm ago" % int(scandate/60)
+			elif scandate < 86400:
+				scandate = "%sh ago" % int(scandate/3600)
+			else:
+				scandate = "%sd ago" % int(scandate/86400)
 		print("%s\t[%s]" % (chan['id'],scandate))
 
 # Add a new channel to the list
 elif args.command=="add":
 	chan = Query()
 	if db.search((chan.type == 'channel') & (chan.id == args.chan)):
-		print("Channel %s is already in the catalog." % args.chan)
+		print("Channel %s is already in the catalog" % args.chan)
 	else :
 		db.insert({'type': 'channel', 'id': args.chan, 'lastvid': None, 'scants': None})
-		print("Channel %s added to the catalog." % args.chan)
+		print("Channel %s added to the catalog" % args.chan)
 
 # Remove a channel from the list
 elif args.command=="remove":
 	chan = Query()
 	res = db.remove((chan.type == 'channel') & (chan.id == args.chan))
 	if res:
-		print("Channel %s was removed from the catalog." % args.chan)
+		print("Channel %s was removed from the catalog" % args.chan)
 	else :
-		print("Channel %s was not in the catalog." % args.chan)
+		print("Channel %s was not in the catalog" % args.chan)
 
 # Update channels in db
-#elif args.command=="update":
-
+elif args.command=="update":
+	# Init driver
+	# TODO : replace with another driver (PhantomJS deprecated)
+	driver = webdriver.PhantomJS()
+	if args.chan:
+		# Update a specific channel
+		chan = Query()
+		if db.search((chan.type == 'channel') & (chan.id == args.chan)):
+			updateChannel(args.chan)
+		else:
+			print("Channel %s is not in the database, use -a or --add to add it" % args.chan)
+	else:
+		# Update all channels
+		chans = Query()
+		for chan in db.search(chans.type == 'channel'):
+			updateChannel(chan['id'])
 
 else:
 	print("Command %s unknown." % args.command)
-
-# Init driver
-# TODO : replace with another driver (PhantomJS deprecated)
-#driver = webdriver.PhantomJS()
-
-
-
-
-
-
-
-# Parse channel content and update database
-def refreshChannel(channel):
-	# Get page content
-	driver.get('https://www.youtube.com/user/%s/videos' % channel)
-	# Get videos links and titles
-	links = driver.find_elements_by_xpath('//body//h3[contains(@class,"yt-lockup-title")]/a')
-	for link in links:
-		vtitle = link.get_attribute("title")
-		vhref = link.get_attribute("href")
-		vhrefid = vhref.split('=')[1]
-		print("[%s] Video found : %s" % (channel,vtitle))
-		print("[%s] [%s] Video unknown" % (channel,vhrefid))
-
-
-
-
-
-#refreshChannel('IndieCurrent')
-
 
 db.close()
