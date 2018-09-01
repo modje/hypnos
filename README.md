@@ -8,6 +8,8 @@ Youtube music download automation with youtube-dl
   * python -m pip install --upgrade pip setuptools wheel
 * Selenium
   * python -m pip install selenium
+* TinyDB
+  * python -m pip install tinydb
 * PhantomJS
   * http://phantomjs.org/download.html
   * (extract binary in folder contained in PATH)
