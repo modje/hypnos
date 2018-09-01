@@ -5,10 +5,10 @@ from tinydb import TinyDB, Query
 
 # Arguments parser
 parser = argparse.ArgumentParser()
-parser.add_argument("command", help="Command to execute", choices=["list","add","remove"])
-parser.add_argument("-c", "--chan", help="Channel identifier (has no effect for 'list' command)")
+parser.add_argument("command", help="Command to execute", choices=["list","add","remove","update"])
+parser.add_argument("-c", "--chan", help="Channel identifier (has no effect on 'list' command)")
 args = parser.parse_args()
-if args.command != 'list' and not args.chan:
+if args.command not in ['list','update'] and not args.chan:
 	parser.error("Channel value is mantatory with command '%s' (use -c or --chan)" % args.command)
 
 # Database
@@ -17,10 +17,16 @@ db = TinyDB(dbFile)
 
 # Output the channel list
 if args.command=="list":
-	print(db.all())
+	chans = Query()
+	for chan in db.search(chans.type == 'channel'):
+		scandate = "never"
+		if chan['scants']:
+			scandate = chan['scants']
+			# TODO : get a pretty date string (like "4d ago")
+		print("%s\t[%s]" % (chan['id'],scandate))
 
 # Add a new channel to the list
-if args.command=="add":
+elif args.command=="add":
 	chan = Query()
 	if db.search((chan.type == 'channel') & (chan.id == args.chan)):
 		print("Channel %s is already in the catalog." % args.chan)
@@ -29,7 +35,7 @@ if args.command=="add":
 		print("Channel %s added to the catalog." % args.chan)
 
 # Remove a channel from the list
-if args.command=="remove":
+elif args.command=="remove":
 	chan = Query()
 	res = db.remove((chan.type == 'channel') & (chan.id == args.chan))
 	if res:
@@ -37,8 +43,12 @@ if args.command=="remove":
 	else :
 		print("Channel %s was not in the catalog." % args.chan)
 
+# Update channels in db
+#elif args.command=="update":
 
 
+else:
+	print("Command %s unknown." % args.command)
 
 # Init driver
 # TODO : replace with another driver (PhantomJS deprecated)
@@ -68,3 +78,6 @@ def refreshChannel(channel):
 
 
 #refreshChannel('IndieCurrent')
+
+
+db.close()
