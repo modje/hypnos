@@ -1,68 +1,70 @@
-#import urllib.request
-#import json
-#from lxml import html
-#from urllib.request import urlopen
-
+import sys, os
+import argparse
 from selenium import webdriver
-#from selenium.webdriver.common.by import By
+from tinydb import TinyDB, Query
 
-#from lxml.etree import tostring
+# Arguments parser
+parser = argparse.ArgumentParser()
+parser.add_argument("command", help="Command to execute", choices=["list","add","remove"])
+parser.add_argument("-c", "--chan", help="Channel identifier (has no effect for 'list' command)")
+args = parser.parse_args()
+if args.command != 'list' and not args.chan:
+	parser.error("Channel value is mantatory with command '%s' (use -c or --chan)" % args.command)
+
+# Database
+dbFile = os.path.join(os.path.dirname(sys.argv[0]), "db.json")
+db = TinyDB(dbFile)
+
+# Output the channel list
+if args.command=="list":
+	print(db.all())
+
+# Add a new channel to the list
+if args.command=="add":
+	chan = Query()
+	if db.search((chan.type == 'channel') & (chan.id == args.chan)):
+		print("Channel %s is already in the catalog." % args.chan)
+	else :
+		db.insert({'type': 'channel', 'id': args.chan, 'lastvid': None, 'scants': None})
+		print("Channel %s added to the catalog." % args.chan)
+
+# Remove a channel from the list
+if args.command=="remove":
+	chan = Query()
+	res = db.remove((chan.type == 'channel') & (chan.id == args.chan))
+	if res:
+		print("Channel %s was removed from the catalog." % args.chan)
+	else :
+		print("Channel %s was not in the catalog." % args.chan)
 
 
-driver = webdriver.PhantomJS()
-driver.get('https://www.youtube.com/user/sprocker7/videos')
-#p_element = driver.find_element_by_id(id_='video-title')
-#print(p_element.text)
-links = driver.find_elements_by_xpath('//body//a')
-for link in links:
-	print(link.text)
-
-#doc = html.parse(urlopen('https://www.youtube.com/user/sprocker7/videos'))
 
 
-#persons = []
-#for person in driver.find_elements_by_class_name('person'):
-#    title = person.find_element_by_xpath('.//div[@class="title"]/a').text
-#    company = person.find_element_by_xpath('.//div[@class="company"]/a').text
-
-#    persons.append({'title': title, 'company': company})
+# Init driver
+# TODO : replace with another driver (PhantomJS deprecated)
+#driver = webdriver.PhantomJS()
 
 
-#print(tostring(doc))
 
 
-#doc = html.parse('https://www.youtube.com/user/sprocker7/videos')
-#doc = html.parse('http://modjecart.free.fr/index.php')
-
-#res = doc.xpath("//a[@id='video-title']")
-#print(res)
 
 
-#author = 'sprocker7'
 
-#foundAll = False
-#ind = 1
-#videos = []
-#while not foundAll:
+# Parse channel content and update database
+def refreshChannel(channel):
+	# Get page content
+	driver.get('https://www.youtube.com/user/%s/videos' % channel)
+	# Get videos links and titles
+	links = driver.find_elements_by_xpath('//body//h3[contains(@class,"yt-lockup-title")]/a')
+	for link in links:
+		vtitle = link.get_attribute("title")
+		vhref = link.get_attribute("href")
+		vhrefid = vhref.split('=')[1]
+		print("[%s] Video found : %s" % (channel,vtitle))
+		print("[%s] [%s] Video unknown" % (channel,vhrefid))
 
-#with urllib.request.urlopen('http://gdata.youtube.com/feeds/api/videos?start-index={0}&max-results=50&alt=json&orderby=published&author={1}'.format(ind,author)) as url:
-#    inp = url.read()
-#    try:
-#resp = json.load(inp)
-#inp.close()
-#        returnedVideos = resp['feed']['entry']
-#        for video in returnedVideos:
-#            videos.append( video ) 
 
-        #ind += 50
-        #print len(videos)
-        #if ( len( returnedVideos ) < 50 ):
-        #    foundAll = True
-#    except:
-        #catch the case where the number of videos in the channel is a multiple of 50
-#        print "error"
-#        foundAll = True
 
-#for video in videos:
-#    print video['title'] # video title
-#    print video['link'][0]['href'] #url
+
+
+#refreshChannel('IndieCurrent')
