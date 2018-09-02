@@ -21,26 +21,46 @@ db = TinyDB(dbFile)
 
 # Parse channel content and update database
 def updateChannel(channel):
-	# Get page content
-	driver.get('https://www.youtube.com/user/%s/videos' % channel)
-	# Get videos links and titles
-	links = driver.find_elements_by_xpath('//body//h3[contains(@class,"yt-lockup-title")]/a')
-	mostRecent=None
-	for link in links:
-		vtitle = link.get_attribute("title")
-		vhref = link.get_attribute("href")
-		vhrefid = vhref.split('=')[1]
-		print("[%s] Video found : %s" % (channel,vtitle))
-		print("[%s] [%s] Video unknown" % (channel,vhrefid))
-		# Keep the first video as the most recent one
-		if not mostRecent:
-			mostRecent=vhrefid
-	# Update the lastvid and scants in db
+	# Get chan info from the db
 	chan = Query()
-	db.update({'lastvid': mostRecent, 'scants': int(time.time())}, (chan.type == 'channel') & (chan.id == channel))
+	chan = db.search((chan.type == 'channel') & (chan.id == channel))
+	if chan:
+		chan = chan[0]
+		# Get page content
+		driver.get('https://www.youtube.com/user/%s/videos' % channel)
+		# Get videos links and titles
+		links = driver.find_elements_by_xpath('//body//h3[contains(@class,"yt-lockup-title")]/a')
+		newVideos = []
+		mostRecent = None
+		for link in links:
+			vtitle = link.get_attribute("title")
+			vhref = link.get_attribute("href")
+			vhrefid = vhref.split('=')[1]
+			# Keep the first video as the most recent one
+			if not mostRecent:
+				mostRecent=vhrefid
+			# If we reached the last known video we exit the loop
+			if vhrefid == chan['lastvid']:
+				break
+			else:
+				newVideos.append([vhrefid,vtitle])
+		# Proceed each new video
+		if len(newVideos) > 0:
+			print("[%s]\t%s new videos found :" % (channel,len(newVideos)))
+			for video in newVideos:
+				print("\t[%s]\t%s" % (video[0],video[1]))
+				# Add the video to the download queue
+				db.insert({'type': 'video', 'id': video[0], 'desc': video[1]})
+		else:
+			print("[%s]\tNo new videos found" % channel)
+		# Update the lastvid and scants in db
+		chan = Query()
+		db.update({'lastvid': mostRecent, 'scants': int(time.time())}, (chan.type == 'channel') & (chan.id == channel))
+	else:
+		print("Channel %s is not in the database, use -a or --add to add it" % channel)
 
 # Output the channel list
-if args.command=="list":
+if args.command == "list":
 	chans = Query()
 	for chan in db.search(chans.type == 'channel'):
 		scandate = "never"
@@ -82,11 +102,7 @@ elif args.command=="update":
 	driver = webdriver.PhantomJS()
 	if args.chan:
 		# Update a specific channel
-		chan = Query()
-		if db.search((chan.type == 'channel') & (chan.id == args.chan)):
-			updateChannel(args.chan)
-		else:
-			print("Channel %s is not in the database, use -a or --add to add it" % args.chan)
+		updateChannel(args.chan)
 	else:
 		# Update all channels
 		chans = Query()
