@@ -9,10 +9,10 @@ warnings.filterwarnings("ignore")
 
 # Arguments parser
 parser = argparse.ArgumentParser()
-parser.add_argument("command", help="Command to execute", choices=["list","add","remove","update"])
+parser.add_argument("command", help="Command to execute", choices=["list","add","remove","update","queue"])
 parser.add_argument("-c", "--chan", help="Channel identifier (has no effect on 'list' command)")
 args = parser.parse_args()
-if args.command not in ['list','update'] and not args.chan:
+if args.command not in ['list','update','queue'] and not args.chan:
 	parser.error("Channel value is mantatory with command '%s' (use -c or --chan)" % args.command)
 
 # Database
@@ -108,6 +108,15 @@ elif args.command=="update":
 		chans = Query()
 		for chan in db.search(chans.type == 'channel'):
 			updateChannel(chan['id'])
+
+# Print the queue content
+elif args.command=="queue":
+	count = 0
+	videos = Query()
+	for video in db.search(videos.type == 'video'):
+		count += 1
+		print("[%s] %s" % (video['id'],video['desc']))
+	print("\nTOTAL : %s videos in queue" % count)
 
 else:
 	print("Command %s unknown." % args.command)

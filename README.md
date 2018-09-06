@@ -15,15 +15,16 @@ Youtube music download automation with youtube-dl
   * (extract binary in folder contained in PATH)
 
 ## Usage
-hypnos.py [-h] [-c CHAN] {list,add,remove,update}  
+hypnos.py [-h] [-c CHAN] {list,add,remove,update,queue}  
 
 positional arguments:
-* Command {list,add,remove,refresh} Command to execute
+* Command {list,add,remove,update,queue} Command to execute
 	* list : Output the channel list
 	* add -c CHAN : Add the channel CHAN to the database
 	* remove -c CHAN : Remove the channel CHAN from the database
 	* update [-c CHAN] : Refresh video list for each channel since last update (or for one channel if specified with -c)
+  * queue : Output the download queue
 
 optional arguments:
 * -h, --help            show this help message and exit
-* -c CHAN, --chan CHAN  Channel identifier (has no effect on 'list' command)
+* -c CHAN, --chan CHAN  Channel identifier (has no effect on 'list' and 'queue' commands)
