@@ -13,6 +13,8 @@ Youtube music download automation with youtube-dl
 * PhantomJS
   * http://phantomjs.org/download.html
   * (extract binary in folder contained in PATH)
+* Youtube-dl
+  * python -m pip install youtube_dl
 
 ## Usage
 hypnos.py [-h] [-c CHAN] {list,add,remove,update,queue}  
