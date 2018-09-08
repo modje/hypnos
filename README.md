@@ -12,9 +12,12 @@ Youtube music download automation with youtube-dl
   * python -m pip install tinydb
 * PhantomJS
   * http://phantomjs.org/download.html
-  * (extract binary in folder contained in PATH)
+  * Extract binary in folder contained in PATH
 * Youtube-dl
   * python -m pip install youtube_dl
+* FFMPEG
+  * https://www.ffmpeg.org/download.html
+  * Add the bin directory to the PATH
 
 ## Usage
 hypnos.py [-h] [-c CHAN] {list,add,remove,update,queue}  
