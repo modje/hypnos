@@ -2,17 +2,59 @@ import sys, os
 import warnings
 import argparse
 import time
+import datetime
+import youtube_dl
 from selenium import webdriver
 from tinydb import TinyDB, Query
+
 # TODO : remove this, fix warnings about PhantomJS being deprecated instead
 warnings.filterwarnings("ignore")
 
+# Download dir
+downloaddir = os.path.dirname(sys.argv[0]) + "/download"
+
+# Logger for youtube-dl
+class MyLogger(object):
+    def debug(self, msg):
+        pass
+
+    def warning(self, msg):
+        pass
+
+    def error(self, msg):
+        pass
+
+# Progress hook for youtube-dl
+def my_hook(d):
+	if d['status'] == 'finished':
+		message = "%s/%s\t Converting \t[%s] %s" % (count,nbvid,video['id'],video['desc'])
+		sys.stdout.write("\b" * (len(message)+16))
+		sys.stdout.write(message)
+		sys.stdout.flush()
+
+# Youtube-dl options
+ydl_opts = {
+    'nocheckcertificate' : True,
+	'nooverwrites' : True,
+	'ignoreerrors' : True,
+	'outtmpl' : downloaddir + '/%(title)s.%(ext)s',
+	'restrictfilenames' : True,
+    'format': 'bestaudio/best',
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192'
+        }],
+	'logger': MyLogger(),
+	'progress_hooks': [my_hook]
+    }
+
 # Arguments parser
 parser = argparse.ArgumentParser()
-parser.add_argument("command", help="Command to execute", choices=["list","add","remove","update","queue"])
-parser.add_argument("-c", "--chan", help="Channel identifier (has no effect on 'list' command)")
+parser.add_argument("command", help="Command to execute", choices=["list","add","remove","update","queue","download","flush"])
+parser.add_argument("-c", "--chan", help="Channel identifier (usable on 'add', 'remove' and 'update' commands)")
 args = parser.parse_args()
-if args.command not in ['list','update','queue'] and not args.chan:
+if args.command not in ['list','update','queue','download','flush'] and not args.chan:
 	parser.error("Channel value is mantatory with command '%s' (use -c or --chan)" % args.command)
 
 # Database
@@ -50,7 +92,7 @@ def updateChannel(channel):
 			for video in newVideos:
 				print("\t[%s]\t%s" % (video[0],video[1]))
 				# Add the video to the download queue
-				db.insert({'type': 'video', 'id': video[0], 'desc': video[1]})
+				db.insert({'type': 'video', 'id': video[0], 'desc': video[1], 'status': 'new'})
 		else:
 			print("[%s]\tNo new videos found" % channel)
 		# Update the lastvid and scants in db
@@ -75,7 +117,8 @@ if args.command == "list":
 				scandate = "%sh ago" % int(scandate/3600)
 			else:
 				scandate = "%sd ago" % int(scandate/86400)
-		print("%s\t[%s]" % (chan['id'],scandate))
+		chanid = chan['id'] + (" " * (16-len(chan['id'])))
+		print("%s\t[%s]" % (chanid,scandate))
 
 # Add a new channel to the list
 elif args.command=="add":
@@ -111,12 +154,59 @@ elif args.command=="update":
 
 # Print the queue content
 elif args.command=="queue":
-	count = 0
 	videos = Query()
+	counterror = 0
+	for video in db.search(videos.type == 'video'):
+		print("(%s)\t[%s] %s" % (video['status'],video['id'],video['desc']))
+		if video['status'] == 'error':
+			counterror += 1
+	print("\nTOTAL : %s videos in queue" % db.count(videos.type == 'video'))
+	if counterror > 0:
+		print("%s previously failed, use 'flush' to remove it from the queue" % counterror)
+
+# Process the queue content
+elif args.command=="download":
+	videos = Query()
+	nbvid = db.count(videos.type == 'video')
+	count = 0
+	counterror = 0
+	starttime = int(time.time())
 	for video in db.search(videos.type == 'video'):
 		count += 1
-		print("[%s] %s" % (video['id'],video['desc']))
-	print("\nTOTAL : %s videos in queue" % count)
+		sys.stdout.write("%s/%s\t Downloading\t[%s] %s" % (count,nbvid,video['id'],video['desc']))
+		sys.stdout.flush()
+		with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+			res = ydl.download(['https://www.youtube.com/watch?v=%s' % video['id']])
+			if res==0:
+				# Successfull
+				message = "%s/%s\t Done        \t[%s] %s" % (count,nbvid,video['id'],video['desc'])
+				vid = Query()
+				db.remove((vid.type == 'video') & (vid.id == video['id']))
+			else:
+				# Error
+				counterror += 1
+				message = "%s/%s\t Error       \t[%s] %s" % (count,nbvid,video['id'],video['desc'])
+				vid = Query()
+				db.update({'status': 'error'},(vid.type == 'video') & (vid.id == video['id']))
+		sys.stdout.write("\b" * (len(message)+16))
+		sys.stdout.write(message + "\n")
+		sys.stdout.flush()
+	endtime = int(time.time())
+	print("\n%s/%s videos were successfully processed in %s" % (nbvid-counterror,nbvid,str(datetime.timedelta(seconds=endtime-starttime))))
+	if counterror > 0:
+		print("%s errors encountered, these videos were not removed from the queue" % counterror)
+
+# Remove the video in error status from the queue
+elif args.command=="flush":
+	videos = Query()
+	removed = db.search((videos.type == 'video') & (videos.status == 'error'))
+	if removed:
+		db.remove((videos.type == 'video') & (videos.status == 'error'))
+		for video in removed:
+			print("Removed\t[%s] %s" % (video['id'],video['desc']))
+		print("\n%s videos were removed" % len(removed))
+	else:
+		print("No video to remove")
 
 else:
 	print("Command %s unknown." % args.command)

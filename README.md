@@ -23,13 +23,15 @@ Youtube music download automation with youtube-dl
 hypnos.py [-h] [-c CHAN] {list,add,remove,update,queue}  
 
 positional arguments:
-* Command {list,add,remove,update,queue} Command to execute
+* Command {list,add,remove,update,queue,download,flush} Command to execute
 	* list : Output the channel list
 	* add -c CHAN : Add the channel CHAN to the database
 	* remove -c CHAN : Remove the channel CHAN from the database
 	* update [-c CHAN] : Refresh video list for each channel since last update (or for one channel if specified with -c)
   * queue : Output the download queue
+  * download : Processes the queue by downloading each element, converting it and deleting it from the queue
+  * flush : Remove the videos in 'error' status from the queue
 
 optional arguments:
 * -h, --help            show this help message and exit
-* -c CHAN, --chan CHAN  Channel identifier (has no effect on 'list' and 'queue' commands)
+* -c CHAN, --chan CHAN  Channel identifier (usable on 'add', 'remove' and 'update' commands)
