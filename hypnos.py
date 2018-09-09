@@ -10,8 +10,11 @@ from tinydb import TinyDB, Query
 # TODO : remove this, fix warnings about PhantomJS being deprecated instead
 warnings.filterwarnings("ignore")
 
+# CONFIGURATION
 # Download dir
 downloaddir = os.path.dirname(sys.argv[0]) + "/download"
+# Exception filter (video description)
+descfilters = ['podcast']
 
 # Reopen stdout file descriptor with write mode
 # and 1 as the buffer size to avoid buffering
@@ -94,13 +97,22 @@ def updateChannel(channel):
 		if len(newVideos) > 0:
 			print("[%s]%s\t%s new videos found :" % (channel," " * (16-(len(channel)+2)),len(newVideos)))
 			for video in newVideos:
-				vid = Query()
-				existflag = "*"
 				viddesc = (video[1].encode('ascii', 'ignore')).decode("utf-8")
-				if db.count((vid.type == 'video') & (vid.id == video[0])) == 0:
-					# Add the video to the download queue
-					db.insert({'type': 'video', 'id': video[0], 'desc': viddesc, 'status': 'new'})
-					existflag = ""
+				# Check filters
+				skip = False
+				for filt in descfilters:
+					if filt.lower() in viddesc.lower():
+						skip = True
+				if skip:
+					existflag = "-"
+				else:
+					vid = Query()
+					existflag = "*"
+					# Check if already in the queue
+					if db.count((vid.type == 'video') & (vid.id == video[0])) == 0:
+						# Add the video to the download queue
+						db.insert({'type': 'video', 'id': video[0], 'desc': viddesc, 'status': 'new'})
+						existflag = ""
 				print("%s\t[%s]\t%s" % (existflag,video[0],viddesc))
 		else:
 			print("[%s]%s\tNo new videos found" % (channel," " * (16-(len(channel)+2))))
