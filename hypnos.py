@@ -13,6 +13,10 @@ warnings.filterwarnings("ignore")
 # Download dir
 downloaddir = os.path.dirname(sys.argv[0]) + "/download"
 
+# Reopen stdout file descriptor with write mode
+# and 1 as the buffer size to avoid buffering
+sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 1)
+
 # Logger for youtube-dl
 class MyLogger(object):
     def debug(self, msg):
@@ -90,9 +94,10 @@ def updateChannel(channel):
 		if len(newVideos) > 0:
 			print("[%s]\t%s new videos found :" % (channel,len(newVideos)))
 			for video in newVideos:
-				print("\t[%s]\t%s" % (video[0],video[1]))
+				viddesc = (video[1].encode('ascii', 'ignore')).decode("utf-8")
+				print("\t[%s]\t%s" % (video[0],viddesc))
 				# Add the video to the download queue
-				db.insert({'type': 'video', 'id': video[0], 'desc': video[1], 'status': 'new'})
+				db.insert({'type': 'video', 'id': video[0], 'desc': viddesc, 'status': 'new'})
 		else:
 			print("[%s]\tNo new videos found" % channel)
 		# Update the lastvid and scants in db
@@ -151,6 +156,7 @@ elif args.command=="update":
 		chans = Query()
 		for chan in db.search(chans.type == 'channel'):
 			updateChannel(chan['id'])
+	driver.quit()
 
 # Print the queue content
 elif args.command=="queue":
