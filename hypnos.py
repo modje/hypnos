@@ -92,19 +92,23 @@ def updateChannel(channel):
 				newVideos.append([vhrefid,vtitle])
 		# Proceed each new video
 		if len(newVideos) > 0:
-			print("[%s]\t%s new videos found :" % (channel,len(newVideos)))
+			print("[%s]%s\t%s new videos found :" % (channel," " * (16-(len(channel)+2)),len(newVideos)))
 			for video in newVideos:
+				vid = Query()
+				existflag = "*"
 				viddesc = (video[1].encode('ascii', 'ignore')).decode("utf-8")
-				print("\t[%s]\t%s" % (video[0],viddesc))
-				# Add the video to the download queue
-				db.insert({'type': 'video', 'id': video[0], 'desc': viddesc, 'status': 'new'})
+				if db.count((vid.type == 'video') & (vid.id == video[0])) == 0:
+					# Add the video to the download queue
+					db.insert({'type': 'video', 'id': video[0], 'desc': viddesc, 'status': 'new'})
+					existflag = ""
+				print("%s\t[%s]\t%s" % (existflag,video[0],viddesc))
 		else:
-			print("[%s]\tNo new videos found" % channel)
+			print("[%s]%s\tNo new videos found" % (channel," " * (16-(len(channel)+2))))
 		# Update the lastvid and scants in db
 		chan = Query()
 		db.update({'lastvid': mostRecent, 'scants': int(time.time())}, (chan.type == 'channel') & (chan.id == channel))
 	else:
-		print("Channel %s is not in the database, use -a or --add to add it" % channel)
+		print("Channel %s is not in the database, use 'add' to add it" % channel)
 
 # Output the channel list
 if args.command == "list":
